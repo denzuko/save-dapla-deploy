@@ -23,6 +23,9 @@
            :rootless-service-account
            :images-pulled :quadlets-activated
            :cinix-write-string
+           :service-account-uid
+           :quadlets-written
+           :haproxy-vhost-written
            :save-network-sections
            :save-container-sections
            :haproxy-vhost-config))
