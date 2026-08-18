@@ -151,6 +151,38 @@ backend save_be
    (mrun (format nil "machinectl shell ~A@ -- systemctl --user daemon-reload" user))
    (mrun (format nil "machinectl shell ~A@ -- systemctl --user restart archivebox" user))))
 
+
+(defprop quadlets-written :posix (user home data-mountpoint)
+  "Write all archivebox quadlet unit files into USER's systemd container
+   directory. The service account UID is read at apply time via getent,
+   after ROOTLESS-SERVICE-ACCOUNT has run, so PublishPort is always correct."
+  (:desc (format nil "Archivebox quadlet units written for ~A" user))
+  (:apply
+   (let ((quadlet-dir (format nil "~A/.config/containers/systemd" home)))
+     (consfigurator.property.file:containing-directory-exists
+      (format nil "~A/save.network" quadlet-dir))
+     (write-remote-file
+      (format nil "~A/save.network" quadlet-dir)
+      (cinix-write-string (save-network-sections)))
+     (write-remote-file
+      (format nil "~A/save.container" quadlet-dir)
+      (cinix-write-string (save-container-sections data-mountpoint))))))
+
+
+(defprop haproxy-vhost-written :posix ()
+  "Write the HAProxy vhost config for this service. Called after
+   ROOTLESS-SERVICE-ACCOUNT has run so service-account-uid resolves
+   correctly, then reloads HAProxy if the content changed."
+  (:desc (format nil "HAProxy vhost written for ~A" *haproxy-fqdn*))
+  (:apply
+   (let* ((cfg-path (format nil "/etc/haproxy/conf.d/~A.cfg" *haproxy-vhost-name*))
+          (new-content (haproxy-vhost-config))
+          (current (when (probe-file cfg-path)
+                     (uiop:read-file-string cfg-path))))
+     (unless (equal new-content current)
+       (write-remote-file cfg-path new-content)
+       (consfigurator.property.service:reloaded "haproxy")))))
+
 (defhost save-host (:deploy (:local))
   "The ArchiveBox host: two AES-256-GCM ZFS datasets, rootless service account,
    linger, pulled image, quadlet unit, and HAProxy vhost."
@@ -161,13 +193,9 @@ backend save_be
   (rootless-service-account *service-user* *home-mountpoint*)
   (lingering-enabled *service-user*)
   (images-pulled *service-user* "oci.dapla.net/archivebox/archivebox:latest")
-  (has-content (format nil "~A/.config/containers/systemd/save.network" *home-mountpoint*)
-               (cinix-write-string (save-network-sections)))
-  (has-content (format nil "~A/.config/containers/systemd/save.container" *home-mountpoint*)
-               (cinix-write-string (save-container-sections *data-mountpoint*)))
+  (quadlets-written *service-user* *home-mountpoint* *data-mountpoint*)
   (quadlets-activated *service-user*)
-  (on-change (has-content "/etc/haproxy/conf.d/save.cfg" (haproxy-vhost-config))
-    (reloaded "haproxy")))
+  (haproxy-vhost-written))
 
 (defun deploy-app ()
   "Provision ArchiveBox via SAVE-HOST. Aborts loudly if any property is skipped."
