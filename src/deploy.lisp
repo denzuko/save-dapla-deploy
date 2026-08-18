@@ -23,6 +23,7 @@
            :rootless-service-account
            :images-pulled :quadlets-activated
            :cinix-write-string
+           :*port-base*
            :service-account-uid
            :quadlets-written
            :haproxy-vhost-written
@@ -42,6 +43,11 @@
 (defparameter *data-dataset-keyfile* "/etc/zfs-keys/archivebox-data.key")
 (defparameter *haproxy-fqdn* "save.dapla.net")
 (defparameter *haproxy-vhost-name* "save")
+
+(defparameter *port-base* 10000
+  "Added to the service account UID to derive the loopback PublishPort.
+   Keeps all ports above 1024 and clear of well-known service ranges.")
+
 
 (defprop zfs-encryption-key :posix (path)
   "Generate a raw 32-byte ZFS encryption key at PATH, once, left alone on
@@ -115,7 +121,7 @@
 
 (defun save-container-sections (data-mountpoint)
   "Cinix AST for save.container. The loopback port is the service account UID."
-  (let ((port (service-account-uid *service-user*)))
+  (let ((port (+ (service-account-uid *service-user*) *port-base*)))
     `(("Unit"      . (("Description" . "ArchiveBox web archiver")))
       ("Container" . (("Image"         . "oci.dapla.net/archivebox/archivebox:latest")
                       ("ContainerName" . "archivebox")
@@ -131,7 +137,7 @@
 
 (defun haproxy-vhost-config ()
   "HAProxy vhost for save.dapla.net. Backend port is the service account UID."
-  (let ((port (service-account-uid *service-user*)))
+  (let ((port (+ (service-account-uid *service-user*) *port-base*)))
     (format nil
 "frontend save_http
   bind *:80
@@ -189,7 +195,7 @@ backend save_be
   (:desc (format nil "HAProxy vhost written for ~A" *haproxy-fqdn*))
   (:check (null (service-account-uid *service-user*)))
   (:apply
-   (let ((port (service-account-uid *service-user*)))
+   (let ((port (+ (service-account-uid *service-user*) *port-base*)))
      (unless port
        (consfigurator:inapplicable-property
         "Service account ~A does not exist; cannot determine port."
