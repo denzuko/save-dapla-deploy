@@ -27,6 +27,7 @@
            :service-account-uid
            :quadlets-written
            :haproxy-vhost-written
+           :decommissioned
            :save-network-sections
            :save-container-sections
            :haproxy-vhost-config))
@@ -131,7 +132,11 @@
                       ("Environment"   . "ALLOWED_HOSTS=save.dapla.net")
                       ("Environment"   . "MEDIA_MAX_SIZE=512m")
                       ("Network"       . "save.network")
-                      ("Label"         . "io.containers.autoupdate=registry")))
+                      ("Label"         . "io.containers.autoupdate=registry")
+                      ("Label"           . "org.cispec.application=save-dapla-deploy")
+                      ("Label"           . "org.cispec.managed-by=consfigurator")
+                      ("Label"           . "org.cispec.fqdn=save.dapla.net")
+                      ("Label"           . "org.cispec.service-account=archivebox")))
       ("Service"   . (("Restart" . "on-failure") ("TimeoutStartSec" . "120") ("TimeoutStopSec" . "30")))
       ("Install"   . (("WantedBy" . "default.target"))))))
 
@@ -222,6 +227,32 @@ backend save_be
   (quadlets-written *service-user* *home-mountpoint* *data-mountpoint*)
   (quadlets-activated *service-user*)
   (haproxy-vhost-written))
+
+
+(defprop decommissioned :posix (user)
+  "Tear down the save-dapla-deploy stack in least-destructive-first order.
+   Steps:
+     1. Stop all containers in the service account session.
+     2. Remove the HAProxy vhost config and reload HAProxy.
+     3. Terminate the service account login session.
+     4. Disable linger so the account session does not restart.
+     5. Delete the service account.
+     6. Destroy all ZFS datasets (irreversible without a backup).
+     7. Remove the ZFS encryption key files.
+   Confirm a current rsync.net replica or snapshot exists before
+   executing steps 6 and 7."
+  (:desc (format nil "save-dapla-deploy decommissioned for ~~A" user))
+  (:apply
+   (mrun (format nil "machinectl shell ~~A@ /usr/bin/systemctl --user stop --all" user))
+   (mrun "rm" "-f" (format nil "/etc/haproxy/conf.d/~~A.cfg" *haproxy-vhost-name*))
+   (mrun "systemctl" "reload" "haproxy")
+   (mrun "loginctl" "terminate-user" user)
+   (mrun "loginctl" "disable-linger" user)
+   (mrun "userdel" user)
+   (mrun "zfs" "destroy" "-r" 'storage/users/archivebox')
+   (mrun "zfs" "destroy" "-r" 'storage/containers/archivebox')
+   (mrun "rm" "-f" '/etc/zfs-keys/archivebox-users.key')
+   (mrun "rm" "-f" '/etc/zfs-keys/archivebox-data.key')))
 
 (defun deploy-app ()
   "Provision ArchiveBox via SAVE-HOST. Aborts loudly if any property is skipped."
