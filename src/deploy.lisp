@@ -101,8 +101,7 @@
 
 (defun save-container-sections (data-mountpoint)
   "Cinix AST for save.container. The loopback port is the service account UID."
-  (let ((port (+ (service-account-uid *service-user*) *port-base*)))
-    `(("Unit"      . (("Description" . "ArchiveBox web archiver")))
+  `(("Unit"      . (("Description" . "ArchiveBox web archiver")))
       ("Container" . (("Image"         . "oci.dapla.net/archivebox/archivebox:latest")
                       ("ContainerName" . "archivebox")
                       ("AutoUpdate"    . "registry")
@@ -120,8 +119,7 @@
 
 (defun haproxy-vhost-config ()
   "HAProxy vhost for save.dapla.net. Backend port is the service account UID."
-  (let ((port (+ (service-account-uid *service-user*) *port-base*)))
-    (format nil
+  (format nil
 "frontend save_http
   bind *:80
   acl host_save hdr(host) -i save.dapla.net
@@ -178,12 +176,7 @@ backend save_be
   (:desc (format nil "HAProxy vhost written for ~A" *haproxy-fqdn*))
   (:check nil)
   (:apply
-   (let ((port (+ (service-account-uid *service-user*) *port-base*)))
-     (unless port
-       (consfigurator:inapplicable-property
-        "Service account ~A does not exist; cannot determine port."
-        *service-user*))
-     (let* ((cfg-path (format nil "/etc/haproxy/conf.d/~A.cfg" *haproxy-vhost-name*))
+   (let* ((cfg-path (format nil "/etc/haproxy/conf.d/~A.cfg" *haproxy-vhost-name*))
             (new-content (haproxy-vhost-config))
             (current (when (probe-file cfg-path)
                        (uiop:read-file-string cfg-path))))
