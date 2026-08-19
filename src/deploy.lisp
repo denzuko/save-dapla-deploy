@@ -220,10 +220,10 @@ backend save_be
    (mrun "loginctl" "terminate-user" user)
    (mrun "loginctl" "disable-linger" user)
    (mrun "userdel" user)
-   (mrun "zfs" "destroy" "-r" 'storage/users/archivebox')
-   (mrun "zfs" "destroy" "-r" 'storage/containers/archivebox')
-   (mrun "rm" "-f" '/etc/zfs-keys/archivebox-users.key')
-   (mrun "rm" "-f" '/etc/zfs-keys/archivebox-data.key')))
+   (mrun "zfs" "destroy" "-r" "storage/users/archivebox")
+   (mrun "zfs" "destroy" "-r" "storage/containers/archivebox")
+   (mrun "rm" "-f" "/etc/zfs-keys/archivebox-users.key")
+   (mrun "rm" "-f" "/etc/zfs-keys/archivebox-data.key")))
 
 (defun deploy-app ()
   "Provision ArchiveBox via SAVE-HOST. Aborts loudly if any property is skipped."
