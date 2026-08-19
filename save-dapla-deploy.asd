@@ -19,3 +19,10 @@ quadlets behind HAProxy at find.dapla.net."
   :components ((:file "t/e2e"))
   :perform (asdf:test-op (op c)
              (uiop:symbol-call :fiveam :run! :save-dapla-deploy-e2e)))
+
+(asdf:defsystem :save-dapla-deploy/spec
+  :description "FiveAM specification tests for the quadlet specifier refactor."
+  :depends-on (:save-dapla-deploy/deploy :fiveam)
+  :components ((:file "t/spec"))
+  :perform (asdf:test-op (op c)
+             (uiop:symbol-call :save-dapla-deploy/spec :run-spec)))

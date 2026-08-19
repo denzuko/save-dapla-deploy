@@ -30,6 +30,8 @@
            :zfs-encryption-key :zfs-dataset-mounted
            :rootless-service-account :images-pulled
            :cinix-write-string
+           :save-network-sections
+           :save-container-sections
            :quadlets-written :quadlets-activated
            :haproxy-vhost-config :haproxy-vhost-written
            :decommissioned))
@@ -117,7 +119,7 @@
                    ("Subnet"      . "10.89.2.24/30")
                    ("Gateway"     . "10.89.2.25")))))
 
-(defun save-container-sections (data-mountpoint)
+(defun save-container-sections ()
   "Cinix AST for save.container. HAProxy backend: 10.89.2.25:8000."
   `(("Unit" . (("Description" . "ArchiveBox web archiver")))
     ("Container" . (("Image"         . "oci.dapla.net/archivebox/archivebox:latest")
@@ -125,7 +127,8 @@
                     ("AutoUpdate"    . "registry")
                       ("Environment" . "ALLOWED_HOSTS=save.dapla.net")
                       ("Environment" . "MEDIA_MAX_SIZE=512m")
-                    ("Volume" . ,(format nil "~A:/data:Z" data-mountpoint))
+                    ("Volume" . "%h:/var/lib/save:ro")
+                    ("Volume" . "/srv/%U/data:/data:Z")
                     ("Network"       . "save.network")
                     ("Label"         . "io.containers.autoupdate=registry")
                     ("Label"         . "org.cispec.application=save-dapla-deploy")
@@ -165,7 +168,7 @@ backend save_be
   server archivebox 10.89.2.25:8000 check inter 10s rise 2 fall 3
 "))
 
-(defprop quadlets-written :posix (user home data-mountpoint)
+(defprop quadlets-written :posix (user home)
   "Write all save quadlet unit files into USER's systemd container directory."
   (:desc (format nil "ArchiveBox web archiver quadlet units written for ~A" user))
   (:apply
@@ -174,7 +177,7 @@ backend save_be
      (write-remote-file (format nil "~A/save.network" quadlet-dir)
                         (cinix-write-string (save-network-sections)))
      (write-remote-file (format nil "~A/save.container" quadlet-dir)
-                        (cinix-write-string (save-container-sections data-mountpoint))))))
+                        (cinix-write-string (save-container-sections))))))
 
 (defprop quadlets-activated :posix (user)
   "Reload USER's user-scope systemd daemon and restart save services."
